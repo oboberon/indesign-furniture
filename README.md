@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Indesign Furniture — ระบบคำนวณต้นทุนสินค้านอกแบบ
 
-## Getting Started
+Web app that replaces the Excel cost sheets used by Indesign Furniture & Decoration for custom-order furniture
+(เก้าอี้ / โซฟา / งานโต๊ะ โรงไม้).
 
-First, run the development server:
+## Cost formula (same as the Excel sheets)
+
+| Step | Formula |
+|---|---|
+| Raw material line (วัตถุดิบหลัก) | `ราคาซื้อ ÷ ชิ้นที่ได้ × จำนวนใช้/ตัว` |
+| + ค่าแรง | `Σ raw × 40%` |
+| Accessory line (อะไหล่ / ฟิตติ้ง / ค่าบริการ) | `ราคา × จำนวน` |
+| + ค่าดำเนินการ | `Σ accessory × 15%` |
+| + ค่าความเสียหาย | `(raw + labor + accessory + overhead) × 3%` |
+| = รวมต้นทุนทั้งหมด / ตัว | |
+| ราคาขาย | `total × (1 + markup%)`, × quantity |
+
+The rates are defaults in **ตั้งค่า** and can be overridden per sheet. The engine lives in `src/lib/calc.ts` and is tested against real Excel totals (`pnpm test`).
+
+## Stack
+
+Next.js 16 (App Router, Server Actions) · Tailwind v4 · shadcn/ui · Drizzle ORM · Neon Postgres · Vercel.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+# .env.local → DATABASE_URL=postgresql://…  (Neon project "indesign-furniture")
 pnpm dev
-# or
-bun dev
+pnpm test          # calculation engine
+pnpm db:generate   # after editing src/db/schema.ts
+pnpm db:migrate
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### One-time Excel import
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`scripts/import-excel.ts` reads the legacy workbooks in `./resources` (git-ignored, internal data). It creates the material catalog and imports every sheet as a template. It also prints a report comparing each total with Excel's cached value.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm db:import --dry-run
+pnpm db:import
+```
 
-## Learn More
+Out of 66 sheets, 4 differ from Excel. In each case Excel's `SUM` range skips the last edging row ("เอจปิดขอบ PVC 28"), and the app includes it.
 
-To learn more about Next.js, take a look at the following resources:
+## Access
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app is public with no login (single user). Pages send `noindex` headers and `robots.txt` disallows crawling.
